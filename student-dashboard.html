@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard</title>
+    <!-- QR Code Generator CDN Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f6f9; }
+        .header { display: flex; justify-content: space-between; align-items: center; background: white; padding: 15px 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h1 { font-size: 22px; color: #333; margin: 0; }
+        .btn-logout { background-color: #dc3545; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 14px; }
+        th { background-color: #007bff; color: white; }
+        .btn-qr { background-color: #28a745; color: white; padding: 6px 12px; border: none; border-radius: 4px; cursor: pointer; }
+        .btn-qr:hover { background-color: #218838; }
+        
+        /* Professional Exam Slip Modal */
+        .modal { display: none; position: fixed; z-index: 10; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
+        .modal-content { background: white; padding: 25px; border-radius: 10px; text-align: left; width: 420px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .modal-content h3 { text-align: center; color: #007bff; margin-top: 0; }
+        .slip-details { font-size: 13.5px; color: #333; line-height: 1.6; background: #f8f9fa; padding: 12px; border-radius: 6px; border-left: 4px solid #007bff; margin-bottom: 15px; }
+        .guidelines { font-size: 12px; color: #555; background: #fff3cd; padding: 10px; border-radius: 6px; border-left: 4px solid #ffc107; margin-bottom: 15px; }
+        .close-btn { background: #dc3545; color: white; border: none; padding: 8px 15px; cursor: pointer; border-radius: 4px; width: 100%; font-weight: bold; }
+        #qrcode { display: flex; justify-content: center; margin: 15px 0; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1 id="welcomeText">Student Dashboard</h1>
+        <button class="btn-logout" onclick="logout()">Logout</button>
+    </div>
+
+    <!-- Section 1: Exam Timetable & QR Slip -->
+    <div class="card">
+        <h3>📅 Exam Timetable & QR Slip</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Subject Code</th>
+                    <th>Subject Name</th>
+                    <th>Session</th>
+                    <th>Date / Time / Venue</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="timetableBody">
+                <tr><td colspan="5" style="text-align: center;">Loading timetable...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Section 2: Examination Results -->
+    <div class="card">
+        <h3>📊 Examination Results</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Subject Code</th>
+                    <th>Subject Name</th>
+                    <th>Score</th>
+                    <th>Grade</th>
+                </tr>
+            </thead>
+            <tbody id="resultsBody">
+                <tr><td colspan="4" style="text-align: center;">Loading results...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Modal for Official Exam Slip & Scannable QR -->
+    <div id="qrModal" class="modal">
+        <div class="modal-content">
+            <h3>Official Examination Slip</h3>
+            
+            <div class="slip-details" id="slipDetailsText">
+                <!-- Dynamic subject info -->
+            </div>
+
+            <div id="qrcode"></div>
+            <div style="text-align: center; font-size: 11px; color: #777; margin-bottom: 10px;">Valid Exam Hall Entry ID</div>
+
+            <div class="guidelines">
+                <b>📌 Important Guidelines:</b>
+                <ul style="margin: 5px 0 0 -15px; padding-left: 0;">
+                    <li>Please arrive at the exam venue at least <b>15 to 30 minutes</b> before the session begins.</li>
+                    <li>Mandatory to bring your <b>Student ID Card</b> and this confirmation slip.</li>
+                    <li>Ensure formal, professional attire (University formal wear, strictly no slippers/sandals).</li>
+                </ul>
+            </div>
+
+            <button class="close-btn" onclick="closeQrModal()">Close</button>
+        </div>
+    </div>
+
+    <script>
+        const studentId = localStorage.getItem('userId');
+        const studentName = localStorage.getItem('fullName') || localStorage.getItem('username');
+
+        if (!studentId) {
+            alert('Please log in again as a student.');
+            window.location.href = 'login.html';
+        } else {
+            document.getElementById('welcomeText').innerText = `Student Dashboard: ${studentName || 'Student'}`;
+        }
+
+        function logout() {
+            localStorage.clear();
+            window.location.href = 'login.html';
+        }
+
+        // 1. Fetch Timetable & QR Slip
+        async function fetchTimetable() {
+            try {
+                const res = await fetch(`/student/timetable/${studentId}`);
+                const data = await res.json();
+                const tbody = document.getElementById('timetableBody');
+
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">No subjects registered by admin.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = data.map(t => `
+                    <tr>
+                        <td><b>${t.subject_code}</b></td>
+                        <td>${t.subject_name}</td>
+                        <td>${t.session_name || 'Main Session'}</td>
+                        <td>${t.exam_date} | ${t.exam_time} | ${t.venue}</td>
+                        <td><button class="btn-qr" onclick='showQr(${JSON.stringify(t)})'>Get QR Slip</button></td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                console.error("Error fetching timetable:", err);
+            }
+        }
+
+        // 2. Fetch Examination Results
+        async function fetchResults() {
+            try {
+                const res = await fetch(`/student/results/${studentId}`);
+                const data = await res.json();
+                const tbody = document.getElementById('resultsBody');
+
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No results found.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = data.map(r => `
+                    <tr>
+                        <td><b>${r.subject_code}</b></td>
+                        <td>${r.subject_name}</td>
+                        <td>${r.score !== null ? r.score : 'Not Graded'}</td>
+                        <td><b>${r.grade || '-'}</b></td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                console.error("Error fetching results:", err);
+            }
+        }
+
+        let qrCodeInstance = null;
+
+        function showQr(exam) {
+            const detailsHtml = `
+                <b>Student Name:</b> ${studentName} (ID: ${studentId})<br>
+                <b>Course:</b> ${exam.subject_code} - ${exam.subject_name}<br>
+                <b>Date:</b> ${exam.exam_date}<br>
+                <b>Time:</b> ${exam.exam_time}<br>
+                <b>Venue:</b> ${exam.venue}
+            `;
+            document.getElementById('slipDetailsText').innerHTML = detailsHtml;
+
+            const qrContainer = document.getElementById('qrcode');
+            qrContainer.innerHTML = '';
+
+            const qrTextPayload = `EXAM_SLIP|ID:${studentId}|Name:${studentName}|Subject:${exam.subject_code}|Date:${exam.exam_date}|Time:${exam.exam_time}|Venue:${exam.venue}`;
+
+            new QRCode(qrContainer, {
+                text: qrTextPayload,
+                width: 130,
+                height: 130,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+
+            document.getElementById('qrModal').style.display = 'flex';
+        }
+
+        function closeQrModal() {
+            document.getElementById('qrModal').style.display = 'none';
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchTimetable();
+            fetchResults();
+        });
+    </script>
+</body>
+</html>

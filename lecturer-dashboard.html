@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Pensyarah</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f6f9; }
+        .header { display: flex; justify-content: space-between; align-items: center; background: white; padding: 15px 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h1 { font-size: 22px; color: #333; margin: 0; }
+        .btn-logout { background-color: #dc3545; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 15px; }
+        select, input, button { padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+        button.btn-save { background-color: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button.btn-save:hover { background-color: #0056b3; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>👩‍🏫 Dashboard Lecturer</h1>
+        <button class="btn-logout" onclick="logout()">Log Keluar</button>
+    </div>
+
+    <div class="card">
+        <h3>Student mark</h3>
+        <form id="markForm">
+            <div class="form-grid">
+                <select id="studentSelect" required onchange="loadStudentSubjects()">
+                    <option value="">-- select student --</option>
+                </select>
+                <select id="subjectSelect" required>
+                    <option value="">-- select subject / Exam --</option>
+                </select>
+                <input type="number" id="scoreInput" placeholder="Markah (score)" min="0" max="100" required>
+                <input type="text" id="gradeInput" placeholder="Gred (Contoh: A)" required>
+            </div>
+            <button type="submit" class="btn-save">Save mark</button>
+        </form>
+    </div>
+
+    <script>
+        // Gunakan pembolehubah yang betul
+        const lecturerId = localStorage.getItem('userId') || 1;
+
+        function logout() {
+            localStorage.clear();
+            window.location.href = 'login.html';
+        }
+
+        async function loadStudents() {
+            try {
+                const res = await fetch('/lecturer/students-list');
+                const students = await res.json();
+                const select = document.getElementById('studentSelect');
+                
+                select.innerHTML = '<option value="">-- Pilih Pelajar --</option>' + 
+                    students.map(s => `<option value="${s.user_id}">${s.full_name} (${s.username})</option>`).join('');
+            } catch (err) {
+                console.error("Ralat memuatkan pelajar:", err);
+            }
+        }
+
+        async function loadStudentSubjects() {
+            const studentId = document.getElementById('studentSelect').value;
+            const subjectSelect = document.getElementById('subjectSelect');
+            
+            if (!studentId) {
+                subjectSelect.innerHTML = '<option value="">-- Pilih Subjek / Exam --</option>';
+                return;
+            }
+
+            try {
+                const res = await fetch(`/lecturer/student-subjects/${studentId}`);
+                const subjects = await res.json();
+
+                subjectSelect.innerHTML = '<option value="">-- Pilih Subjek / Exam --</option>' + 
+                    subjects.map(sub => `<option value="${sub.subject_id}">${sub.subject_code} - ${sub.subject_name} (${sub.session_name})</option>`).join('');
+            } catch (err) {
+                console.error("Ralat memuatkan subjek pelajar:", err);
+            }
+        }
+
+        document.getElementById('markForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const student_id = document.getElementById('studentSelect').value;
+            const subject_id = document.getElementById('subjectSelect').value;
+            const score = document.getElementById('scoreInput').value;
+            const grade = document.getElementById('gradeInput').value;
+
+            try {
+                const response = await fetch('/lecturer/save-mark', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        student_id, 
+                        subject_id, 
+                        score, 
+                        grade, 
+                        lecturer_id: lecturerId // <-- Diperbetulkan di sini menggunakan lecturerId
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (response.ok && result.status === 'success') {
+                    alert('Markah berjaya disimpan!');
+                    document.getElementById('markForm').reset();
+                    document.getElementById('subjectSelect').innerHTML = '<option value="">-- Pilih Subjek / Exam --</option>';
+                } else {
+                    alert('Gagal: ' + (result.message || 'Tidak dapat simpan markah'));
+                }
+            } catch (err) {
+                console.error("Ralat Fetch:", err);
+                alert('Ralat sambungan ke server!');
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', loadStudents);
+    </script>
+</body>
+</html>

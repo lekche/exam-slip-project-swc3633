@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f6f9; }
+        .header { display: flex; justify-content: space-between; align-items: center; background: white; padding: 15px 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .header h1 { margin: 0; font-size: 22px; color: #333; }
+        .btn-logout { background-color: #dc3545; color: white; padding: 10px 18px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; text-decoration: none; font-size: 14px; }
+        .btn-logout:hover { background-color: #c82333; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h2, h3 { margin-top: 0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background-color: #007bff; color: white; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 10px; }
+        input, select, button { padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+        button.btn-add { background-color: #28a745; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button.btn-add:hover { background-color: #218838; }
+        .btn-delete { background-color: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .subjects-box { background: #f8f9fa; padding: 10px; border: 1px solid #ddd; border-radius: 4px; max-height: 120px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+
+    <!-- HEADER / TAJUK DASHBOARD & BUTANG LOG KELUAR -->
+    <div class="header">
+        <h1>⚙️ Dashboard (Admin)</h1>
+        <button class="btn-logout" onclick="logout()">Log Keluar</button>
+    </div>
+
+    <!-- TAMBAH PENSYARAH -->
+    <div class="card">
+        <h3>👩‍🏫 Add Lecturer</h3>
+        <form id="addLecturerForm">
+            <div class="form-grid">
+                <input type="text" id="lName" placeholder="Full name" required>
+                <input type="email" id="lEmail" placeholder="E-mel lecturer" required>
+                <input type="text" id="lUser" placeholder="Username lecturer" required>
+                <input type="password" id="lPass" placeholder="Password" required>
+            </div>
+            <button type="submit" class="btn-add">Save</button>
+        </form>
+    </div>
+
+    <!-- TAMBAH PELAJAR & SUBJEK -->
+    <div class="card">
+        <h3>🎓 Add Student </h3>
+        <form id="addStudentForm">
+            <div class="form-grid">
+                <input type="text" id="sName" placeholder="Full name" required>
+                <input type="email" id="sEmail" placeholder="E-mel student" required>
+                <input type="text" id="sUser" placeholder="Username student" required>
+                <input type="password" id="sPass" placeholder="Password" required>
+                <input type="text" id="sSession" placeholder="Sesi (example: Sesi 1 2026)" required>
+            </div>
+            <div style="margin-bottom: 10px;">
+                <label><b>Subject student chosen</b></label>
+                <div id="subjectsContainer" class="subjects-box"></div>
+            </div>
+            <button type="submit" class="btn-add">Save</button>
+        </form>
+    </div>
+
+    <!-- SENARAI PENSYARAH -->
+    <div class="card">
+        <h2>Lecturer list</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th><th>Nama Penuh</th><th>E-mel</th><th>Username</th><th>Tindakan</th>
+                </tr>
+            </thead>
+            <tbody id="lecturerTable"></tbody>
+        </table>
+    </div>
+
+    <!-- SENARAI PELAJAR -->
+    <div class="card">
+        <h2>student list</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th><th>Nama Penuh</th><th>E-mel</th><th>Username</th><th>Subjek & Sesi Berdaftar</th><th>Tindakan</th>
+                </tr>
+            </thead>
+            <tbody id="studentTable"></tbody>
+        </table>
+    </div>
+
+    <script>
+        function logout() {
+            localStorage.clear();
+            window.location.href = 'login.html';
+        }
+
+        async function loadAdminData() {
+            // Fetch Subjects Checklist
+            const resSub = await fetch('/admin/subjects-list');
+            const subjects = await resSub.json();
+            document.getElementById('subjectsContainer').innerHTML = subjects.map(s => 
+                `<div><label><input type="checkbox" value="${s.subject_id}"> <b>${s.subject_code}</b> - ${s.subject_name}</label></div>`
+            ).join('');
+
+            // Fetch Lecturers
+            const resLec = await fetch('/admin/lecturers');
+            const lecturers = await resLec.json();
+            document.getElementById('lecturerTable').innerHTML = lecturers.length === 0 ? 
+                '<tr><td colspan="5" style="text-align:center;">Tiada pensyarah</td></tr>' :
+                lecturers.map(l => `
+                    <tr>
+                        <td>${l.user_id}</td><td>${l.full_name}</td><td>${l.email}</td><td>${l.username}</td>
+                        <td><button class="btn-delete" onclick="deleteUser(${l.user_id})">Padam</button></td>
+                    </tr>
+                `).join('');
+
+            // Fetch Students
+            const resStu = await fetch('/admin/students');
+            const students = await resStu.json();
+            document.getElementById('studentTable').innerHTML = students.length === 0 ?
+                '<tr><td colspan="6" style="text-align:center;">Tiada pelajar</td></tr>' :
+                students.map(s => `
+                    <tr>
+                        <td>${s.user_id}</td><td>${s.full_name}</td><td>${s.email}</td><td>${s.username}</td>
+                        <td>${s.enrolled_courses || 'Tiada Subjek'}</td>
+                        <td><button class="btn-delete" onclick="deleteUser(${s.user_id})">Padam</button></td>
+                    </tr>
+                `).join('');
+        }
+
+        // Add Lecturer
+        document.getElementById('addLecturerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const res = await fetch('/admin/add-lecturer', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    full_name: document.getElementById('lName').value,
+                    email: document.getElementById('lEmail').value,
+                    username: document.getElementById('lUser').value,
+                    password: document.getElementById('lPass').value
+                })
+            });
+            if(res.ok) { alert('Pensyarah Berjaya Ditambah!'); document.getElementById('addLecturerForm').reset(); loadAdminData(); }
+        });
+
+        // Add Student
+        document.getElementById('addStudentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const checkedSubjects = Array.from(document.querySelectorAll('#subjectsContainer input:checked')).map(cb => cb.value);
+
+            const res = await fetch('/admin/add-student', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    full_name: document.getElementById('sName').value,
+                    email: document.getElementById('sEmail').value,
+                    username: document.getElementById('sUser').value,
+                    password: document.getElementById('sPass').value,
+                    session_name: document.getElementById('sSession').value,
+                    subject_ids: checkedSubjects
+                })
+            });
+            if(res.ok) { alert('Pelajar Berjaya Ditambah!'); document.getElementById('addStudentForm').reset(); loadAdminData(); }
+        });
+
+        async function deleteUser(id) {
+            if (confirm('Adakah anda pasti mahu memadam pengguna ini?')) {
+                await fetch(`/admin/delete-user/${id}`, { method: 'DELETE' });
+                loadAdminData();
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', loadAdminData);
+    </script>
+</body>
+</html>
